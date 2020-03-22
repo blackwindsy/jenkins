@@ -3,7 +3,7 @@
 1. Log in Jenkins.
 1. Click New Item.
 1. Select Pipeline.
-   1. Specify name of the item.
+   1. Specify name of the item, "jenkins-git".
    1. Scroll down to Pipeline section (tab).
    1. Select Definition = Pipeline script from SCM.
    1. Secect SCM = Git
