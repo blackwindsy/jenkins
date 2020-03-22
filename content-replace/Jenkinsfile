@@ -1,67 +1,69 @@
 pipeline {
-	def antHome
-	stage('preparation') { // for display purposes
-		steps {
-			echo 'preparation started--------------------'
+	agent any
+	stages {
+		stage('preparation') { // for display purposes
+			steps {
+				echo 'preparation started--------------------'
 
-			if (isUnix()) {
-				sh 'echo "unix command"'
-			} else {
-				bat(/echo "windows command"/)
+				if (isUnix()) {
+					sh 'echo "unix command"'
+				} else {
+					bat(/echo "windows command"/)
+				}
+
+				// Get some code from a GitHub repository
+				//git 'https://github.com/HHS/HHS-BizFlow.git'
+				// Get the Maven tool.
+				// ** NOTE: This 'M3' Maven tool must be configured
+				// **       in the global configuration.           
+				//mvnHome = tool 'M3'
+
+				echo 'preparation ended.'
 			}
-
-			// Get some code from a GitHub repository
-			//git 'https://github.com/HHS/HHS-BizFlow.git'
-			// Get the Maven tool.
-			// ** NOTE: This 'M3' Maven tool must be configured
-			// **       in the global configuration.           
-			//mvnHome = tool 'M3'
-
-			echo 'preparation ended.'
 		}
-	}
-	stage('build') {
-		steps {
-			echo 'build started--------------------'
+		stage('build') {
+			steps {
+				echo 'build started--------------------'
 
-			echo 'build ended.'
-		}
-	}
-	stage('config') {
-		steps {
-			echo 'config started--------------------'
-			
-			if (isUnix()) {
-				sh '''
-					mkdir -p ${env.WORKSPACE}/content-replace/env/prd
-					cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd
-				'''
-			} else {
-				bat(/echo "windows command/)
+				echo 'build ended.'
 			}
-			contentReplace( 
-				configs: [ 
-					fileContentReplaceConfig( 
-						configs: [ 
-							fileContentReplaceItemConfig(search: '#\\{conf\\.server\\.name\\}#', replace: 'HQvsCRMAPP01', matchCount: 1) 
-						],
-						fileEncoding: 'UTF-8', 
-						filePath: '${env.WORKSPACE}/content-replace/env/prd/conf.properties'
-					) 
-				]
-			)
-
-			echo 'config ended.'
 		}
-	}
-	stage('results') {
-		steps {
-			echo 'results started--------------------'
+		stage('config') {
+			steps {
+				echo 'config started--------------------'
+				
+				if (isUnix()) {
+					sh '''
+						mkdir -p ${env.WORKSPACE}/content-replace/env/prd
+						cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd
+					'''
+				} else {
+					bat(/echo "windows command/)
+				}
+				contentReplace( 
+					configs: [ 
+						fileContentReplaceConfig( 
+							configs: [ 
+								fileContentReplaceItemConfig(search: '#\\{conf\\.server\\.name\\}#', replace: 'HQvsCRMAPP01', matchCount: 1) 
+							],
+							fileEncoding: 'UTF-8', 
+							filePath: '${env.WORKSPACE}/content-replace/env/prd/conf.properties'
+						) 
+					]
+				)
 
-			//junit '**/target/surefire-reports/TEST-*.xml'
-			//archiveArtifacts 'target/*.jar
+				echo 'config ended.'
+			}
+		}
+		stage('results') {
+			steps {
+				echo 'results started--------------------'
 
-			echo 'results ended.'
+				//junit '**/target/surefire-reports/TEST-*.xml'
+				//archiveArtifacts 'target/*.jar
+
+				echo 'results ended.'
+			}
 		}
 	}
 }
