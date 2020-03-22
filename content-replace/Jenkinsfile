@@ -1,4 +1,4 @@
-node {
+pipeline {
 	def antHome
 	stage('preparation') { // for display purposes
 		steps {
