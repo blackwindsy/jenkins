@@ -5,19 +5,14 @@ pipeline {
 			steps {
 				echo 'preparation started--------------------'
 
-				if (isUnix()) {
-					sh 'echo "unix command"'
-				} else {
-					bat(/echo "windows command"/)
+				script {
+					if (isUnix()) {
+						sh 'echo "unix command"'
+					} else {
+						bat(/echo "windows command"/)
+					}
 				}
-
-				// Get some code from a GitHub repository
-				//git 'https://github.com/HHS/HHS-BizFlow.git'
-				// Get the Maven tool.
-				// ** NOTE: This 'M3' Maven tool must be configured
-				// **       in the global configuration.           
-				//mvnHome = tool 'M3'
-
+				
 				echo 'preparation ended.'
 			}
 		}
@@ -32,13 +27,15 @@ pipeline {
 			steps {
 				echo 'config started--------------------'
 				
-				if (isUnix()) {
-					sh '''
-						mkdir -p ${env.WORKSPACE}/content-replace/env/prd
-						cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd
-					'''
-				} else {
-					bat(/echo "windows command/)
+				script {	
+					if (isUnix()) {
+						sh '''
+							mkdir -p ${env.WORKSPACE}/content-replace/env/prd
+							cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd
+						'''
+					} else {
+						bat(/echo "windows command/)
+					}
 				}
 				contentReplace( 
 					configs: [ 
