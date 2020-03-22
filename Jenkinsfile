@@ -7,14 +7,20 @@ pipeline {
 				echo("JENKINS_URL = ${env.JENKINS_URL}") 
 				echo("Running ${env.BUILD_ID} ${env.BUILD_NUMBER}") 
 				echo("BUILD_URL = ${env.BUILD_URL}") 
-				echo("WORKSPACE = ${env.WORKSPACE}") 
+				echo "WORKSPACE = ${env.WORKSPACE}" 
 				echo('init end')
 			}
 		}
 		stage('build') {
 			steps {
-				echo('build start')
-				echo('build end')
+				echo 'build start'
+				echo 'build end'
+			}
+		}
+		stage('config') {
+			steps {
+				echo('config start')
+				echo('config end')
 			}
 		}
 		stage('deploy') {
