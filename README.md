@@ -14,4 +14,4 @@
 1. Click Build Now.
 1. Review result.
 
-_NOTE_ that your project root directory should have Jenkinsfile that is downloaded from git.  This is also placed at the project root directory under Jenkins workspace directory. 
+**NOTE** that your project root directory should have Jenkinsfile that is downloaded from git.  This is also placed at the project root directory under Jenkins workspace directory. 
