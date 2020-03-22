@@ -15,3 +15,9 @@
 1. Review result.
 
 **NOTE** that your project root directory should have Jenkinsfile that is downloaded from git.  This is also placed at the project root directory under Jenkins workspace directory. 
+
+Jenkinsfile at the root of this repository is the simple default one.  For more specialized examples, use the Jenkinsfile under the respective subdirectories.
+
+For example, in order to use content-replace project example,
+
+Script Path = content-replace/Jenkinsfile
