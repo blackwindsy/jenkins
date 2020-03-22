@@ -18,6 +18,6 @@
 
 Jenkinsfile at the root of this repository is the simple default one.  For more specialized examples, use the Jenkinsfile under the respective subdirectories.
 
-For example, in order to use content-replace project example,
+For example, in order to use content-replace project example, set the Script Path field of the Pipeline section in Jenkins to point to the correct Jenkinsfile as desired.
 
-Script Path = content-replace/Jenkinsfile
+    Script Path = content-replace/Jenkinsfile
