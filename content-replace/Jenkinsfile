@@ -1,5 +1,5 @@
 pipeline {
-	agent {node {label 'macjenkins'}}
+	agent any
 	stages {
 		stage('preparation') {
 			steps {
