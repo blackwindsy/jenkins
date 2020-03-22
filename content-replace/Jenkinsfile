@@ -31,8 +31,8 @@ pipeline {
 				script {	
 					if (isUnix()) {
 						sh '''
-							mkdir -p ${env.WORKSPACE}/content-replace/env/prd
-							cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd
+							mkdir -p "${env.WORKSPACE}/content-replace/env/prd"
+							cp "${env.WORKSPACE}/content-replace/conf.properties" "${env.WORKSPACE}/content-replace/env/prd"
 						'''
 					} else {
 						bat(/echo "windows command/)
