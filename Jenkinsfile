@@ -11,19 +11,19 @@ pipeline {
 				echo('init end')
 			}
 		}
-		stage('build') 
+		stage('build') {
 			steps {
 				echo('build start')
 				echo('build end')
 			}
 		}
-		stage('deploy') 
+		stage('deploy') {
 			steps {
 				echo('deploy start')
 				echo('deploy end')
 			}
 		}
-		stage('result') 
+		stage('result') {
 			steps {
 				echo('result start')
 				echo('result end')
