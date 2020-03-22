@@ -5,6 +5,7 @@ pipeline {
 			steps {
 				echo 'preparation started--------------------'
 
+				echo "WORKSPACE = $env.WORKSPACE"
 				script {
 					if (isUnix()) {
 						sh 'echo "unix command"'
