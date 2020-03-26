@@ -27,7 +27,7 @@ pipeline {
 				deleteDir('jdbc')
 				sh '''
 					pwd
-					mkdir jdbc
+					mkdir -p jdbc
 				'''
 				dir('jdbc') {
 					sh 'pwd'
