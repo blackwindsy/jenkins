@@ -21,15 +21,18 @@ pipeline {
 			steps {
 				echo 'build started--------------------'
 				sh '''
+					pwd
 					rmdir jdbc
 					mkdir jdbc
 					cd jdbc
 					ls
 				'''
+				sh 'pwd'
 				checkout([
 					$class: 'GitSCM', 
 					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
 				])
+				sh 'pwd'
 				sh 'ls'
 				sh "ls $env.WORKSPACE"
 				echo 'build ended.'
