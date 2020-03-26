@@ -13,13 +13,15 @@ pipeline {
 						bat(/echo "windows command"/)
 					}
 				}
-				
+				clearWs()
 				echo 'preparation ended.'
 			}
 		}
 		stage('build') {
 			steps {
 				echo 'build started--------------------'
+				sh 'mkdir jdbc'
+				cd 'jdbc'
 				checkout([
 					$class: 'GitSCM', 
 					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
