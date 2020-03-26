@@ -20,7 +20,12 @@ pipeline {
 		stage('build') {
 			steps {
 				echo 'build started--------------------'
-
+				checkout([
+					$class: 'GitSCM', 
+					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
+				])
+				sh 'ls'
+				sh "ls $env.WORKSPACE"
 				echo 'build ended.'
 			}
 		}
