@@ -41,8 +41,11 @@ pipeline {
 				
 				script {	
 					if (isUnix()) {
+						sh 'pwd'
+						sh "ls ${env.WORKSPACE}/content-replace"
 						sh "mkdir -p ${env.WORKSPACE}/content-replace/env/prd"
 						sh "cp ${env.WORKSPACE}/content-replace/conf.properties ${env.WORKSPACE}/content-replace/env/prd"
+						sh "ls ${env.WORKSPACE}/content-replace"
 					} else {
 						bat(/echo "windows command"/)
 					}
