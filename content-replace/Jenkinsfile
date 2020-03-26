@@ -21,6 +21,7 @@ pipeline {
 			steps {
 				echo 'build started--------------------'
 				sh '''
+					rmdir jdbc
 					mkdir jdbc
 					cd jdbc
 					ls
