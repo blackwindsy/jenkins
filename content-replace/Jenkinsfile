@@ -13,7 +13,7 @@ pipeline {
 						bat(/echo "windows command"/)
 					}
 				}
-				clearWs()
+				//clearWs()
 				echo 'preparation ended.'
 			}
 		}
