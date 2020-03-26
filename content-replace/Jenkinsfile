@@ -24,7 +24,6 @@ pipeline {
 		stage('build') {
 			steps {
 				echo 'build started--------------------'
-				deleteDir('jdbc')
 				sh '''
 					pwd
 					mkdir -p jdbc
