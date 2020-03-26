@@ -24,9 +24,8 @@ pipeline {
 					pwd
 					rmdir jdbc
 					mkdir jdbc
-					cd jdbc
-					ls
 				'''
+				dir('jdbc')
 				sh 'pwd'
 				checkout([
 					$class: 'GitSCM', 
