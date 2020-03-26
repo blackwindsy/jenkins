@@ -20,8 +20,11 @@ pipeline {
 		stage('build') {
 			steps {
 				echo 'build started--------------------'
-				sh 'mkdir jdbc'
-				cd 'jdbc'
+				sh '''
+					mkdir jdbc
+					cd jdbc
+					ls
+				'''
 				checkout([
 					$class: 'GitSCM', 
 					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
