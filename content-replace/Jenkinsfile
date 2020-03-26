@@ -31,12 +31,12 @@ pipeline {
 				dir('jdbc') {
 					sh 'pwd'
 					checkout([
-					$class: 'GitSCM', 
-					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
-				])
+						$class: 'GitSCM', 
+						userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
+					])
+					sh 'ls'
 				}
 				sh 'pwd'
-				sh 'ls'
 				sh "ls $env.WORKSPACE"
 				echo 'build ended.'
 			}
