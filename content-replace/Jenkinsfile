@@ -9,6 +9,10 @@ pipeline {
 				script {
 					if (isUnix()) {
 						sh 'echo "unix command"'
+						sh 'pwd'
+						sh 'ls'
+						sh "ls $env.WORKSPACE"
+						sh "ls $env.WORKSPACE/content-replace"
 					} else {
 						bat(/echo "windows command"/)
 					}
@@ -27,12 +31,11 @@ pipeline {
 				'''
 				dir('jdbc') {
 					sh 'pwd'
-				}
-				
-				checkout([
+					checkout([
 					$class: 'GitSCM', 
 					userRemoteConfigs: [[url: 'https://github.com/blackwindsy/jdbc.git']]
 				])
+				}
 				sh 'pwd'
 				sh 'ls'
 				sh "ls $env.WORKSPACE"
