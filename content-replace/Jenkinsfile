@@ -63,7 +63,7 @@ pipeline {
 								fileContentReplaceItemConfig(search: '#\\{conf\\.server\\.name\\}#', replace: 'HQvsCRMAPP01', matchCount: 1) 
 							],
 							fileEncoding: 'UTF-8', 
-							filePath: "${env.WORKSPACE}/content-replace/env/prd/conf.properties"
+							filePath: "${env.WORKSPACE}/content-replace/env/*"
 						) 
 					]
 				)
