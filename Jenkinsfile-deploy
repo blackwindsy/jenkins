@@ -1,0 +1,295 @@
+node('deploy') {
+	def exceptionDetected = 'false'
+	def notifContent = ''
+	def paramInfo = ''
+	def exceptionMsg = ''
+
+	try {
+		properties([
+			parameters([
+				string(name: 'ARTIFACT', defaultValue: 'default', description: 'Enter the identification of the artifact to deploy'),
+				choice(name: 'DEPLOY_ENV', choices: ['DEV', 'QA', 'PRD'], description: 'Select the target depoyment environment.'),
+				booleanParam(name: 'IS_TEST', defaultValue: false, description: 'Select if this run is for testing')
+			])
+		])
+
+		def applName = 'myApp'
+
+		def serverInfo = [
+			DEV: [
+				appServers: [
+					[hostName: 'dapp001', ip: '10.22.37.125', os: 'windows']
+				],
+				webServers: [
+					[hostName: 'dweb001', ip: '10.24.37.111', os: 'linux']
+				]
+			],
+			QA: [
+				appServers: [
+					[hostName: 'qapp001', ip: '10.23.114.56', os: 'windows'],
+					[hostName: 'qapp002', ip: '10.23.114.57', os: 'windows']
+				],
+				webServers: [
+					[hostName: 'qweb001', ip: '10.25.114.11', os: 'linux'],
+					[hostName: 'qweb002', ip: '10.25.114.12', os: 'linux']
+				]
+			],
+			PRD: [
+				appServers: [
+					[hostName: 'app001', ip: '10.4.66.47', os: 'windows'],
+					[hostName: 'app002', ip: '10.4.66.48', os: 'windows']
+				],
+				webServers: [
+					[hostName: 'web001', ip: '10.5.21.78', os: 'linux'],
+					[hostName: 'web002', ip: '10.5.21.79', os: 'linux']
+				]
+			]
+		]
+
+		def remote = [:]
+
+		timestamps {
+			withCredentials([
+				usernamePassword(credentialsId:'jenkinsdev-idpw', usernameVariable: 'nexusUser', passwordVariable: 'nexusPass'),
+				sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', sernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
+				sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', sernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
+				sshUserPrivateKey(credentialsId: 'jenkins-ssh', sernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
+			]) {
+				stage('Initialize') {
+					echo 'Initialization start --------------------------------------------------------------'
+					paramInfo =  "\n parameters ------\n"
+					paramInfo += "\n WORKSPACE     = ${env.WORKSPACE} \n"
+					paramInfo += "\n applName      = ${applName} \n"
+					paramInfo += "\n ARTIFACT      = ${params.ARTIFACT} \n"
+					paramInfo += "\n DEPLOY_ENV    = ${params.DEPLOY_ENV} \n"
+					paramInfo += "\n IS_TEST       = ${params.IS_TEST} \n"
+					echo "${paramInfo}"
+					cleanWs()
+					if (isUnix()) {
+						sh '''
+							echo Unix environment detected.
+							whoami
+							pwd
+							ls
+						'''
+					} else if (isWindows()) {
+						bat '''
+							echo Windows environment detected.
+							whoami
+							cd
+							dir
+						'''
+					}
+				}
+
+				stage('Download') {
+					echo 'Download build artifact start -----------------------------------------------------'
+					def artifactUrl = ''
+					if ("$params.ARTIFACT" == 'default') {
+						artifactUrl = "https://nexus.mycompany.com/repository/myapprepo/${applName}/latest/${applName}.zip"
+					} else {
+						artifactUrl = "https://nexus.mycompany.com/repository/myapprepo/${applName}/${params.ARTIFACT}.zip"	
+					}
+					echo 'artifactUrl = ' + artifactUrl
+
+					if (isUnix()) {
+						sh """
+							wget --user=$nexusUser --password=$nexusPass -O ${applName}.zip --no-check-certificate ${artifactUrl}
+							ls
+						"""
+					} else {
+						bat """
+							curl -v -u "$nexusUser:$nexusPass" --insecure -o ${applName}.zip -X GET ${artifactUrl}
+						"""
+					}
+
+					dir("${applName}/deploy") {
+						deleteDir()
+					}
+
+					unzip zipFile: "$env.WORKSPACE/${applName}.zip", dir: "$env.WORKSPACE/${applName}/deploy"
+
+				}
+
+				stage('Configure') {
+					echo 'Configuration start ----------------------------------------------------------'
+					generateConfigFiles(applName)
+				}
+
+				stage('Package') {
+					echo 'Package start ----------------------------------------------------------'
+					dir('package') {
+						deleteDir()
+					}
+					zip zipFile: "package/${applName}.zip", archive: 'false', dir: "$env.WORKSPACE/${applName}/deploy"
+
+					// stash so that parallel nodes can access
+					stash includes: "package/${applName}.zip", name: 'deployArtifact'
+				}
+
+				stage('App deployment') {
+					echo 'App deployment start ----------------------------------------------------------'
+					def parallelSteps = [:]
+					serverInfo["$params.DEPLOY_ENV"]['appServers'].each {
+						def targetServer = it
+						echo '--- creating parallel step for server ' + targetServer.hostName + ' with ip addr ' + targetServer.ip + '---'
+						if (targetServer != null && targetServer.hostName != null && targetServer.hostName != '') {
+							parallelSteps["${targetServer.hostName}"] = {
+								node{'deploy'} {
+									appDeploy("${applName}", "$params.DEPLOY_ENV", targetServer, "$params.IS_TEST")
+								}
+							}
+						}
+					}
+					parallel parallelSteps
+				}
+			}
+		}
+	} catch (e) {
+		exceptionDetected = 'true'
+		exceptionMsg += "\n*************************************"
+		exceptionMsg += "\n\t EXCEPTION:"
+		exceptionMsg += "\n\t message = ${e}"
+		exceptionMsg += "\n*************************************"
+		notifContent += exceptionMsg
+		echo "${exceptionMsg}"
+		error("build failed due to exception: ${e}")
+	} finally {
+		echo 'The pipeline finished'
+		notifContent = paramInfo + notifContent
+		def buildResult = currentBuild.currentResult
+		if (exceptionDetected == 'true') {
+			buildResult = 'FAIL'
+		}
+		def emailTo = 'syang@myemail.com'
+		def emailCc = 'syang@somemail.com'
+		mail to: "${emailTo}",
+			cc: "${emailCc}",
+			subject: "My application deploy job for $params.DEPLOY_ENV [${buildResult}] ${env.BUILD_TAG}",
+			body: "${env.BUILD_URL} has result [${buildResult}]\n\n ${notifContent}"
+	}
+}
+
+
+
+
+def appDeploy(applName, env, targetServer, isTest) {
+	echo '---- appDeploy() called with \n applName = ' + applName + '\n env = ' + env  + '\n targetServer.hostName = ' + targetServer.hostName  + '\n isTest = ' + isTest 
+
+	unstash 'deployArtifact'
+
+
+	withCredentials([
+		usernamePassword(credentialsId:'jenkinsdev-idpw', usernameVariable: 'nexusUser', passwordVariable: 'nexusPass'),
+		sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', sernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
+		sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', sernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
+		sshUserPrivateKey(credentialsId: 'jenkins-ssh', sernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
+	]) {
+		def remote = [:]
+		remote.name = targetServer.hostName
+		remote.host = targetServer.ip
+		remote.appendName = true
+		remote.allowAnyHosts = true
+		//SEVERE WARNING INFO CONFIG FINE FINER FINEST
+		remote.logLevel = 'INFO'
+		if (env == 'DEV') {
+			remote.user = sshUserDev 
+			remote.identityFile = sshKeyFileDev 
+		} else if (env == 'QA') {
+			remote.user = sshUserQa 
+			remote.identityFile = sshKeyFileQa 
+		} else if (env == 'PRD') {
+			remote.user = sshUser 
+			remote.identityFile = sshKeyFile 
+		} else {
+			remote = null
+		}
+
+		if (remote != null) {
+			if (targetServer.os == 'linux') {
+				sshCommand remote: remote, command: 'pwd'
+				sshCommand remote: remote, command: 'ls -l'
+				sshCommand remote: remote, command: "rm -f ${applName}.zip", failOnError: false 
+				sshCommand remote: remote, command: "rm -f deploy.zip", failOnError: false 
+				sshCommand remote: remote, command: "rm -rf deploy", failOnError: false 
+				sshCommand remote: remote, command: 'mkdir deploy'
+				sshPut remote: remote, from: "package/${applName}.zip", into: '.'
+				sshCommand remote: remote, command: "cd deploy && jar -xf ../${applName}.zip"
+				sshCommand remote: remote, command: "jar -cMf deploy.zip -C deploy myappservice"
+				if (isTest == 'false') {
+					sshCommand remote: remote, command: 'sudo systemctl stop tomcat', failOnError: false
+					sleep 30 
+					sshCommand remote: remote, command: "cd /opt/tomcat/webapps && jar -xf ~/deploy.zip"
+					sshCommand remote: remote, command: 'sudo chown -Rf tomcat:appTools /opt/tomcat/webapps'
+					sshCommand remote: remote, command: 'sudo chmod -Rf 770 /opt/tomcat/webapps'
+					sshCommand remote: remote, command: 'sudo systemctl restart tomcat'
+					sleep 30 
+				} else {
+					sshCommand remote: remote, command: 'rm -rf /tmp/testdeploy', failOnError: false
+					sshCommand remote: remote, command: 'mkdir -p /tmp/testdeploy/webapps'
+					sshCommand remote: remote, command: "cd /tmp/testdeploy/webapps && jar -xf ~/deploy.zip"
+					sshCommand remote: remote, command: 'sudo chown -Rf tomcat:appTools /tmp/testdeploy/webapps'
+					sshCommand remote: remote, command: 'sudo chmod -Rf 770 /tmp/testdeploy/webapps'
+				}
+			} else if (targetServer.os == 'windows') {
+				sshCommand remote: remote, command: "echo %USERPROFILE%"
+				sshCommand remote: remote, command: "dir %USERPROFILE%"
+				sshCommand remote: remote, command: "echo %JAVA_HOME%"
+				sshCommand remote: remote, command: "dir %JAVA_HOME%"
+				sshCommand remote: remote, command: 'cd'
+				sshCommand remote: remote, command: 'dir'
+				sshCommand remote: remote, command: "del /q ${applName}.zip", failOnError: false 
+				sshCommand remote: remote, command: "del /q deploy.zip", failOnError: false 
+				sshCommand remote: remote, command: "if exist deploy rmdir /s /q deploy"
+				sleep 10
+				sshCommand remote: remote, command: 'mkdir deploy'
+				sshPut remote: remote, from: "package/${applName}.zip", into: '.'
+				sshCommand remote: remote, command: "cd deploy && %JAVA_HOME%\\bin\\jar -xf ..\\${applName}.zip"
+				sshCommand remote: remote, command: "%JAVA_HOME%\\bin\\jar -cMf deploy.zip -C deploy myappservice"
+				if (isTest == 'false') {
+					remote.retryCount = 2
+					remote.retryWaitSec = 15
+					sshCommand remote: remote, command: 'net stop tomcat', failOnError: false
+					remote.retryCount = 0
+					remote.retryWaitSec = 0
+					sleep 30 
+					sshCommand remote: remote, command: "E: && cd \"E:\\tomcat\\webapps\" && %JAVA_HOME%\\bin\\jar -xf %USERPROFILE%\\deploy.zip"
+					remote.retryCount = 2
+					remote.retryWaitSec = 15
+					sshCommand remote: remote, command: 'net start tomcat', failOnError: false
+					remote.retryCount = 0
+					remote.retryWaitSec = 0
+					sleep 30 
+				} else {
+					sshCommand remote: remote, command: 'if exist E:\\tmp\\testdeploy rmdir /s /q E:\\tmp\\testdeploy'
+					sleep 10
+					sshCommand remote: remote, command: 'mkdir E:\\tmp\\testdeploy\\webapps'
+					sshCommand remote: remote, command: "E: && cd E:\\tmp\\testdeploy\\webapps && %JAVA_HOME%\\bin\\jar -xf %USERPROFILE%\\deploy.zip"
+				}
+			} else {
+				echo 'O/S not supported'
+			}
+		} else {
+			echo 'remote is null so that we cannot deploy'
+		}
+
+	}
+}
+
+
+
+
+def generateConfigFilesForDev() {
+	echo '--- generate config files for DEV environment ---'
+
+	contentReplace(
+		configs: [
+			fileContentReplaceConfig(
+				configs: [
+					fileContent
+				]
+			)
+		]
+	)
+
+}
