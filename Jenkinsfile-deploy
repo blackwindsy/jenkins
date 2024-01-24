@@ -51,9 +51,9 @@ node('deploy') {
 		timestamps {
 			withCredentials([
 				usernamePassword(credentialsId:'jenkinsdev-idpw', usernameVariable: 'nexusUser', passwordVariable: 'nexusPass'),
-				sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', sernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
-				sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', sernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
-				sshUserPrivateKey(credentialsId: 'jenkins-ssh', sernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
+				sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', usernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
+				sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', usernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
+				sshUserPrivateKey(credentialsId: 'jenkins-ssh', usernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
 			]) {
 				stage('Initialize') {
 					echo 'Initialization start --------------------------------------------------------------'
@@ -253,7 +253,7 @@ def appDeploy(applName, env, targetServer, isTest) {
 					remote.retryCount = 0
 					remote.retryWaitSec = 0
 					sleep 30 
-					sshCommand remote: remote, command: "E: && cd \"E:\\tomcat\\webapps\" && %JAVA_HOME%\\bin\\jar -xf %USERPROFILE%\\deploy.zip"
+					sshCommand remote: remote, command: "E: && cd E:\\tomcat\\webapps && %JAVA_HOME%\\bin\\jar -xf %USERPROFILE%\\deploy.zip"
 					remote.retryCount = 2
 					remote.retryWaitSec = 15
 					sshCommand remote: remote, command: 'net start tomcat', failOnError: false
@@ -286,10 +286,136 @@ def generateConfigFilesForDev() {
 		configs: [
 			fileContentReplaceConfig(
 				configs: [
-					fileContent
-				]
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.dir\\}#', replace: 'E:/logs/myappservice'),
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.level\\}#', replace: 'debug'),
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/dev/myappservice/WEB-INF/classes/log4j2.properties"
+			),
+			fileContentReplaceConfig(
+				configs: [
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.mynotifjob\\.cron\\}#', replace: '0 0 6-18 ? * MON-FRI *', matchCount: 1),
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.myarchivejob\\.cron\\}#', replace: '0 10/15 * ? * * *', matchCount: 1)
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/dev/myappservice/WEB-INF/classes/quartz_data.xml"
 			)
 		]
 	)
-
 }
+
+
+
+
+def generateConfigFilesForQa() {
+	echo '--- generate config files for QA environment ---'
+
+	contentReplace(
+		configs: [
+			fileContentReplaceConfig(
+				configs: [
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.dir\\}#', replace: 'E:/logs/myappservice'),
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.level\\}#', replace: 'info'),
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/qa/myappservice/WEB-INF/classes/log4j2.properties"
+			),
+			fileContentReplaceConfig(
+				configs: [
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.mynotifjob\\.cron\\}#', replace: '0 0 6-18 ? * MON-FRI *', matchCount: 1),
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.myarchivejob\\.cron\\}#', replace: '0 10/15 * ? * * *', matchCount: 1)
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/qa/myappservice/WEB-INF/classes/quartz_data.xml"
+			)
+		]
+	)
+}
+
+
+
+
+def generateConfigFilesForPrd() {
+	echo '--- generate config files for PRD environment ---'
+
+	contentReplace(
+		configs: [
+			fileContentReplaceConfig(
+				configs: [
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.dir\\}#', replace: 'E:/logs/myappservice'),
+					fileContentReplaceItemConfig(search: '#\\{myapp\\.log\\.level\\}#', replace: 'error'),
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/prd/myappservice/WEB-INF/classes/log4j2.properties"
+			),
+			fileContentReplaceConfig(
+				configs: [
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.mynotifjob\\.cron\\}#', replace: '0 0 6-18 ? * MON-FRI *', matchCount: 1),
+					fileContentReplaceItemConfig(search: '#\\{quartz\\.data\\.myarchivejob\\.cron\\}#', replace: '0 10/15 * ? * * *', matchCount: 1)
+				],
+				fileEncoding: 'UTF-8',
+				filePath: "${env.WORKSPACE}/env/prd/myappservice/WEB-INF/classes/quartz_data.xml"
+			)
+		]
+	)
+}
+
+
+
+
+def generateConfigFiles(String applName) {
+	dir("${applName}/deploy") {
+		if (isUnix()) {
+			sh """
+				mkdir -p ${env.WORKSPACE}/env/dev/myappservice/WEB-INF/classes
+				mkdir -p ${env.WORKSPACE}/env/qa/myappservice/WEB-INF/classes
+				mkdir -p ${env.WORKSPACE}/env/prd/myappservice/WEB-INF/classes
+
+				cp -f myappservice/WEB-INF/classes/*.properties  ${env.WORKSPACE}/env/dev/myappservice/WEB-INF/classes
+				cp -f myappservice/WEB-INF/classes/*.xml         ${env.WORKSPACE}/env/dev/myappservice/WEB-INF/classes
+
+				cp -Rf ${env.WORKSPACE}/env/dev ${env.WORKSPACE}/env/qa
+				cp -Rf ${env.WORKSPACE}/env/dev ${env.WORKSPACE}/env/prd
+			"""
+		} else {
+			bat """
+				mkdir ${env.WORKSPACE}\\env\\dev\\myappservice\\WEB-INF\\classes
+				
+				xcopy /s /c /i /f /r /y myappservice\\WEB-INF\\classes\\*.properties  ${env.WORKSPACE}\\env\\dev\\myappservice\\WEB-INF\\classes
+				xcopy /s /c /i /f /r /y myappservice\\WEB-INF\\classes\\*.xml         ${env.WORKSPACE}\\env\\dev\\myappservice\\WEB-INF\\classes
+
+				xcopy /s /c /i /f /r /y ${env.WORKSPACE}\\env\\dev\\*  ${env.WORKSPACE}\\env\\qa
+				xcopy /s /c /i /f /r /y ${env.WORKSPACE}\\env\\dev\\*  ${env.WORKSPACE}\\env\\prd
+			"""
+		}
+	}
+
+	generateConfigFilesForDev()
+	generateConfigFilesForQa()
+	generateConfigFilesForPrd()
+
+	dir('env') {
+		if (isUnix()) {
+			if (params.DEPLOY_ENV == 'DEV') {
+				sh "cp -rf dev/* ${env.WORKSPACE}/${applName}/deploy/"
+			}
+			if (params.DEPLOY_ENV == 'DEV') {
+				sh "cp -rf qa/* ${env.WORKSPACE}/${applName}/deploy/"
+			}
+			if (params.DEPLOY_ENV == 'DEV') {
+				sh "cp -rf prd/* ${env.WORKSPACE}/${applName}/deploy/"
+			}
+		} else {
+			if (params.DEPLOY_ENV == 'DEV') {
+				bat "xcopy /s /c /i /f /r /y dev\\* ${env.WORKSPACE}\\${applName}\\deploy\\"
+			}
+			if (params.DEPLOY_ENV == 'DEV') {
+				bat "xcopy /s /c /i /f /r /y qa\\* ${env.WORKSPACE}\\${applName}\\deploy\\"
+			}
+			if (params.DEPLOY_ENV == 'DEV') {
+				bat "xcopy /s /c /i /f /r /y prd\\* ${env.WORKSPACE}\\${applName}\\deploy\\"
+			}
+		}
+	}
+}
+

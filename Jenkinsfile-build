@@ -1,0 +1,199 @@
+def paramInfo = ''
+
+pipeline {
+	agent { node { label 'build'}}
+
+	environment {
+		VN = VersionNumber([
+			versionNumberString: '${BUILD_DATE_FORMATTED, "yyyyMMdd"}.${BUILD_ID}',
+			projectStartDate: '2024-01-01',
+			versionPrefix: 'v.'
+		])
+		applName = 'myappservice';
+		isSastIncremental = true;
+		SONAR_CREDS = credentials('jenkins-sonar');
+	}
+
+	parameters {
+		string(name: 'build_number', defaultValue: '1.0.0', description: 'Build Number')
+		choice(name: 'build', choices: ['Checkout', 'Build', 'Build-only', 'Build-deploy', 'Build-noscan', 'SAST', 'SAST-increment', 'Sonar', 'Package', 'Upload'], description: 'Pipeline stage to initiate')
+		choice(name: 'branch', choices: ['develop', 'release', 'OTHER'], description: 'Branch to clone/checkout')
+		string(name: 'otherBranch', defaultValue: '', description: 'Other branch to specify')
+	}
+
+
+
+	stages {
+		stage('Initialize') {
+			echo 'Initialization start -------------------------------------------------------------'
+			script {
+				paramInfo =  "\n parameters ------\n"
+				paramInfo += "\n WORKSPACE     = ${env.WORKSPACE} \n"
+				paramInfo += "\n applName      = ${applName} \n"
+				paramInfo += "\n build         = ${params.build} \n"
+				paramInfo += "\n branch        = ${params.branch} \n"
+				paramInfo += "\n otherBranch   = ${params.otherBranch} \n"
+				echo "${paramInfo}"
+			}
+
+			if (isUnix()) {
+				sh '''
+					echo Unix environment detected.
+					whoami
+					pwd
+					ls
+				'''
+			} else if (isWindows()) {
+				bat '''
+					echo Windows environment detected.
+					whoami
+					cd
+					dir
+				'''
+			}
+		}
+
+		stage('Checkout') {
+			when {
+				expression { params.build == 'Checkout' || params.build == 'Build' || params.build == 'Build-only' || params.build == 'Build-deploy' || params.build == 'Build-noscan' || params.build == 'SAST' || params.build == 'SAST-increment' || params.build == 'Sonar' || params.build == 'Package' || params.build == 'Upload' }
+			}
+			steps {
+				echo 'Checkout start ---------------------------------------------------'
+				script {
+					if (isUnix()) {
+						sh """
+							mkdir -p $env.WORKSPACE/$applName
+							ls
+							git config --global http.sslVerify false
+						"""
+					} else {
+						bat """
+							mkdir $env.WORKSPACE\\$applName
+							dir
+							git config --global http.sslVerify false
+						"""
+					}
+				}
+				dir("$applName") {
+					script {
+						if ("${params.branch}" != 'OTHER') {
+							git url: 'ssh://scm.mycompany.com:22/tfs/DefaultCollection/_git/myappservice', branch: "${params.branch}", credentialsId: 'jenkins-ssh'
+						} else if ("${params.otherBranch}" != null ) {
+							git url: 'ssh://scm.mycompany.com:22/tfs/DefaultCollection/_git/myappservice', branch: "${params.otherBranch}", credentialsId: 'jenkins-ssh'
+
+						}
+					}
+
+				}
+				script {
+					if (isUnix()) {
+						sh """
+							pwd
+							ls $applName
+						"""
+					} else {
+						bat """
+							cd
+							dir $applName
+						"""
+					}
+				}
+			}
+		}
+
+		stage('SAST') {
+			when {
+				expression { params.build == 'Build' || params.build == 'Build-deploy' || params.build == 'SAST' || params.build == 'SAST-increment' }
+			}
+			steps {
+				echo 'SAST start ---------------------------------------------------'
+			}
+		}
+
+		stage('Build') {
+			when {
+				expression { params.build == 'Build' || params.build == 'Build-only' || params.build == 'Build-deploy' || params.build == 'Build-noscan' || params.build == 'Sonar' || params.build == 'Package' || params.build == 'Upload' }
+			}
+			steps {
+				echo 'Build start ---------------------------------------------------'
+				dir("$applName") {
+					script {
+						if (isUnix()) {
+							sh 'ant'
+							sh 'ls'
+						} else {
+							bat 'ant'
+							bat 'dir'
+						}
+					}
+				}
+			}
+		}
+
+		stage('Sonar') {
+			when {
+				expression { params.build == 'Build' || params.build == 'Build-deploy' || params.build == 'Sonar' }
+			}
+			steps {
+				echo 'Sonar start ---------------------------------------------------'
+			}
+		}
+
+		stage('Package') {
+			when {
+				expression { params.build == 'Build' || params.build == 'Build-deploy' || params.build == 'Build-noscan' || params.build == 'Package' || params.build == 'Upload' }
+			}
+			steps {
+				echo 'Package start ---------------------------------------------------'
+				dir('package') {
+					deleteDir()
+				}
+				zip zipFile: "package/${applName}.zip", archive: 'false', dir: "$env.WORKSPACE/${applName}/deploy"
+			}
+		}
+
+		stage('Upload') {
+			when {
+				expression { params.build == 'Build' || params.build == 'Build-deploy' || params.build == 'Build-noscan' || params.build == 'Upload' }
+			}
+			steps {
+				echo 'Upload start ---------------------------------------------------'
+				withCredentials([usernamePassword(credentialsId: 'jenkins-idpw', usernameVariable: 'nexusUser', passwordVariable: 'nexusPass')]) {
+					script {
+						/* it is assumed that build machine is Windows OS*/
+						bat """
+							curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/latest/${applName}.zip
+						"""
+
+						if ("${params.branch}" != 'OTHER') {
+							bat """
+								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/${applName}-$VN-${params.branch}.zip
+							"""
+						} else {
+							bat """
+								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/${applName}-$VN-${params.otherBranch}.zip
+							"""
+						}
+					}
+				}
+			}
+		}
+
+		stage('Deploy') {
+			parallel {
+				when {
+					expression { params.build == 'Build-deploy' }
+				}
+				steps {
+					echo 'Parallel deployment start ---------------------------------------------------'
+					script {
+						build job: 'deploy_job', parameters: [ string(name: 'DEPLOY_ENV', value: 'DEV')], wait: true
+					}
+				}	
+			}
+		}
+
+	}
+
+
+}
