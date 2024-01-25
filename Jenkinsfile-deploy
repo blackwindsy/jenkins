@@ -1,4 +1,7 @@
 node('deploy') {
+
+	def applName = 'myappservice'
+	def nexusUrl = 'https://nexus.mycompany.com/repository/snapshots/com/mycompany/myappservice'
 	def exceptionDetected = 'false'
 	def notifContent = ''
 	def paramInfo = ''
@@ -12,8 +15,6 @@ node('deploy') {
 				booleanParam(name: 'IS_TEST', defaultValue: false, description: 'Select if this run is for testing')
 			])
 		])
-
-		def applName = 'myApp'
 
 		def serverInfo = [
 			DEV: [
@@ -86,9 +87,9 @@ node('deploy') {
 					echo 'Download build artifact start -----------------------------------------------------'
 					def artifactUrl = ''
 					if ("$params.ARTIFACT" == 'default') {
-						artifactUrl = "https://nexus.mycompany.com/repository/myapprepo/${applName}/latest/${applName}.zip"
+						artifactUrl = "${nexusUrl}/latest/${applName}-latest.zip"
 					} else {
-						artifactUrl = "https://nexus.mycompany.com/repository/myapprepo/${applName}/${params.ARTIFACT}.zip"	
+						artifactUrl = "${nexusUrl}/${params.ARTIFACT}.zip"	
 					}
 					echo 'artifactUrl = ' + artifactUrl
 
@@ -181,9 +182,9 @@ def appDeploy(applName, env, targetServer, isTest) {
 
 	withCredentials([
 		usernamePassword(credentialsId:'jenkinsdev-idpw', usernameVariable: 'nexusUser', passwordVariable: 'nexusPass'),
-		sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', sernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
-		sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', sernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
-		sshUserPrivateKey(credentialsId: 'jenkins-ssh', sernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
+		sshUserPrivateKey(credentialsId: 'jenkinsdev-ssh', usernameVariable: 'sshUserDev', keyFileVariable: 'sshKeyFileDev'),
+		sshUserPrivateKey(credentialsId: 'jenkinsqa-ssh', usernameVariable: 'sshUserQa', keyFileVariable: 'sshKeyFileQa'),
+		sshUserPrivateKey(credentialsId: 'jenkins-ssh', usernameVariable: 'sshUser', keyFileVariable: 'sshKeyFile')
 	]) {
 		def remote = [:]
 		remote.name = targetServer.hostName

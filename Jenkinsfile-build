@@ -10,6 +10,8 @@ pipeline {
 			versionPrefix: 'v.'
 		])
 		applName = 'myappservice';
+		gitUrl = 'ssh://scm.mycompany.com:22/tfs/DefaultCollection/_git';
+		nexusUrl = 'https://nexus.mycompany.com/repository/snapshots/com/mycompany/myappservice';
 		isSastIncremental = true;
 		SONAR_CREDS = credentials('jenkins-sonar');
 	}
@@ -77,11 +79,10 @@ pipeline {
 				dir("$applName") {
 					script {
 						if ("${params.branch}" != 'OTHER') {
-							git url: 'ssh://scm.mycompany.com:22/tfs/DefaultCollection/_git/myappservice', branch: "${params.branch}", credentialsId: 'jenkins-ssh'
+							git url: "${gitUrl}/${applName}", branch: "${params.branch}", credentialsId: 'jenkins-ssh'
 						} else if ("${params.otherBranch}" != null ) {
-							git url: 'ssh://scm.mycompany.com:22/tfs/DefaultCollection/_git/myappservice', branch: "${params.otherBranch}", credentialsId: 'jenkins-ssh'
-
-						}
+							git url: "${gitUrl}/${applName}", branch: "${params.otherBranch}", credentialsId: 'jenkins-ssh'
+ß						}
 					}
 
 				}
@@ -162,16 +163,16 @@ pipeline {
 					script {
 						/* it is assumed that build machine is Windows OS*/
 						bat """
-							curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/latest/${applName}.zip
+							curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k ${nexusUrl}/${applName}-latest.zip
 						"""
 
 						if ("${params.branch}" != 'OTHER') {
 							bat """
-								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/${applName}-$VN-${params.branch}.zip
+								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k ${nexusUrl}/${applName}-$VN-${params.branch}.zip
 							"""
 						} else {
 							bat """
-								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k https://nexus.mycompany.com/repository/snapshots/com/mycompany/${applName}/${applName}-$VN-${params.otherBranch}.zip
+								curl -v -u "$nexusUser:$nexusPass" --upload-file $env.WORKSPACE\\package\\${applName}.zip -k ${nexusUrl}/${applName}-$VN-${params.otherBranch}.zip
 							"""
 						}
 					}
